@@ -1,8 +1,10 @@
-from tweepy import Client, OAuthHandler
+from tweepy import Client
 from openai import ChatCompletion
 from threading import Timer
 from env import ACCESS_TOKEN, ACCESS_TOKEN_SECRET, CONSUMER_KEY, CONSUMER_SECRET, OPENAI_API_KEY
 from halo import Halo
+from app.Console import clean
+from rich import print as rprint
 
 
 class GPTweeter:
@@ -22,10 +24,11 @@ class GPTweeter:
 
     # Função que faz o tweet
     def tweet(self) -> None:
+        clean()  # Limpando o console
         response = self.generate_response()  # Gerando o tweeter usando o ChatGPT
         tweet = self.format_tweet(response)  # Formatando o tweet
         self.make_tweet(tweet)  # Fazendo o tweet
-        print(f"Tweet publicado: {tweet}")
+        rprint(f"\n[blue]Tweet publicado:[/blue] [yellow]{tweet}[/yellow]")
 
     # Função que cria um intervalo
     def set_interval(self, func, sec: int):
@@ -48,8 +51,10 @@ class GPTweeter:
             response = ChatCompletion.create(
                 model="gpt-3.5-turbo",
                 messages=[
-                    {"role": "system", "content": f"Você é um robo do tweeter que cria tweets interressante e chamativos falando sobre os assuntos: {self.subjects}"},
-                    {"role": "user", "content": "faça um tweet"},
+                    {"role": "system",
+                        "content": f"Você é um robo do tweeter que cria tweets interressante e chamativos falando sobre os assuntos: {self.subjects}"},
+                    {"role": "user",
+                        "content": "faça um tweet, com no maximo 200 caracteres"},
                 ],
                 temperature=0.7,
                 api_key=OPENAI_API_KEY
