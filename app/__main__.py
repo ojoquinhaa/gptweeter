@@ -18,6 +18,7 @@ func = input(f"""{colors.BOLD}Qual função você quer utilizar?
 
 {colors.OKCYAN}1 - Postar um tweet
 2 - Postar um tweet de tempo em tempo
+3 - Responda um reply
 
 {colors.HEADER}Função: {colors.WARNING}""")
 
@@ -29,7 +30,12 @@ subjects = input(
 
 clean()  # Limpando o console
 
-gptweeter = GPTweeter(subjects)  # Criando a instancia com os temas
+# Terceira pergunta que vai definir o nome de usuário da conta
+username = input(
+    f"{colors.HEADER}Qual o nome de usuário da conta autenticada? (sem o @) {colors.FAIL}"
+)
+
+gptweeter = GPTweeter(subjects, username)  # Criando a instancia com os temas
 
 # Caso a função escolhida seja a primeira
 if (func == "1"):
@@ -64,6 +70,9 @@ elif (func == "2"):
 
     # Iniciando o thread do gptweeter
     gptweeter.activate(int(delay))
+
+elif (func == "3"):
+    gptweeter.reply()
 
 # Caso não seja nenhuma das funções
 else:
