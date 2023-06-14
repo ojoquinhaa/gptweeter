@@ -6,7 +6,7 @@ from halo import Halo
 from rich import print as rprint
 from requests import get
 from time import sleep
-from app.Console import clean
+from app.Console import clean, print_header
 
 
 class GPTweeter:
@@ -96,8 +96,12 @@ class GPTweeter:
         last_reply_text = last_reply_data['text']
         last_reply_id = last_reply_data['id']
 
-        last_reply_referenced_tweet = last_reply['includes']['tweets'][0]
-        last_reply_referenced_tweet_text = last_reply_referenced_tweet['text']
+        try:
+            last_reply_referenced_tweet = last_reply['includes']['tweets'][0]
+            last_reply_referenced_tweet_text = last_reply_referenced_tweet['text']
+        except:
+            last_reply_referenced_tweet = ""
+            last_reply_referenced_tweet_text = ""
 
         rprint(
             f"[green]Reply:[/green] {last_reply_text} \n[blue]ID:[/blue] {last_reply_id}")
@@ -152,6 +156,7 @@ class GPTweeter:
         rprint(f"\n[blue]Tweet publicado:[/blue] [yellow]{tweet}[/yellow]")
 
     # Função que cria um intervalo
+
     def set_interval(self, func, sec: int):
         # Função que cria o wrapper da função
         def func_wrapper():
