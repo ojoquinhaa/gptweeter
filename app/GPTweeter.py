@@ -6,8 +6,7 @@ from halo import Halo
 from rich import print as rprint
 from requests import get
 from time import sleep
-from os import system as sys
-from platform import system as get_so
+from app.Console import clean
 
 
 class GPTweeter:
@@ -27,17 +26,7 @@ class GPTweeter:
             access_token=ACCESS_TOKEN, access_token_secret=ACCESS_TOKEN_SECRET
         )
 
-    def clean():  # Função para limpar o console
-        so = get_so()  # Pegando o sistema operacional
-        # Se for windows
-        if so == 'windows':
-            return sys('cls')  # Função que limpa o console
-
-        # Caso for o resto
-        else:
-            return sys('clear')  # Função que limpa o console
-
-    def activate(self, delay):
+    def activate(self, delay: int):
         self.tweet()
 
         self.set_interval(self.tweet, delay)
@@ -48,6 +37,9 @@ class GPTweeter:
 
         self.set_interval(self.reply, 1800)
 
+    def activate_replys(self, delay: int):
+        self.set_interval(self.reply, delay)
+
     def get_most_recent_reply(self):
         spinner = Halo(text='Fazendo request do tweet mais recente',
                        spinner='dots')  # Gerando o spinner
@@ -56,6 +48,7 @@ class GPTweeter:
         # Parametros para pegar replys
         params = {
             'query': f'to:{self.username} is:reply',
+            'expansions': 'referenced_tweets.id'
         }
 
         # Fazendo a request
@@ -66,12 +59,13 @@ class GPTweeter:
         json = request.json()
 
         # Retornando erro
-        if not json['data']:
+        if not 'data' in json:
             spinner.fail("Falha ao tentar fazer a requisição do último reply")
+            return None
 
         spinner.succeed("Reply encontrada com sucesso!")  # Sucesso!
 
-        return json['data'][0]  # Retornando data
+        return json  # Retornando data
 
     def make_reply(self, tweet: str, reply_id: str):
         spinner = Halo(text='Respondendo último reply',
@@ -91,13 +85,40 @@ class GPTweeter:
         return response  # Retornando a resposta
 
     def reply(self):
-        self.clean()
-        last_reply = self.get_most_recent_reply()
-        gpt_reply = self.gpt_generate_reply(last_reply['text'])
-        formated_reply = self.format_gpt_response(gpt_reply)
-        self.make_reply(formated_reply, last_reply['id'])
+        clean()
 
-    def gpt_generate_reply(self, reply: str):
+        last_reply = self.get_most_recent_reply()
+
+        if last_reply == None:
+            return
+
+        last_reply_data = last_reply['data'][0]
+        last_reply_text = last_reply_data['text']
+        last_reply_id = last_reply_data['id']
+
+        last_reply_referenced_tweet = last_reply['includes']['tweets'][0]
+        last_reply_referenced_tweet_text = last_reply_referenced_tweet['text']
+
+        rprint(
+            f"[green]Reply:[/green] {last_reply_text} \n[blue]ID:[/blue] {last_reply_id}")
+
+        if self.is_answered(last_reply_id):
+            rprint(
+                f'[red]A reply - {last_reply_text} - já foi respondida.[/red]')
+            return
+
+        gpt_reply = self.gpt_generate_reply(
+            reply=last_reply_text,
+            referenced_tweet=last_reply_referenced_tweet_text
+        )
+
+        formated_reply = self.format_gpt_response(gpt_reply)
+        self.make_reply(formated_reply, last_reply_id)
+
+        rprint(
+            f"[purple]:Resposta:[/purple] [yellow]{formated_reply}[/yellow]")
+
+    def gpt_generate_reply(self, reply: str, referenced_tweet: str):
         spinner = Halo(text=f'Gerando a resposta da reply: "{reply}" falando sobre {self.subjects} usando o Chat GPT',
                        spinner='dots')  # Gerando o spinner
         spinner.start()  # Iniciando
@@ -108,9 +129,9 @@ class GPTweeter:
                 model="gpt-3.5-turbo",
                 messages=[
                     {"role": "system",
-                        "content": f"Você é um robo do tweeter que cria tweets interressante e chamativos falando sobre os assuntos: {self.subjects}, mas não necessariamente sobre todos os assuntos ao mesmo tempo"},
+                        "content": f"Você é um robo do tweeter que cria tweets interressante e chamativos para o usuário {self.username} falando sobre os assuntos: {self.subjects}, mas não necessariamente sobre todos os assuntos ao mesmo tempo, é tambem responde replys feitos na conta de forma convidativa, mas sem mencionar nenhum usuário"},
                     {"role": "user",
-                        "content": f'Alguem respondeu o seu tweet com o seguinte reply: "{reply}". Elabore uma resposta.'},
+                        "content": f'Alguem respondeu o seu tweet - {referenced_tweet} - com o seguinte reply: "{reply}". Elabore uma resposta a esté reply, com no maximo 200 caracteres'},
                 ],
                 temperature=0.7,
                 api_key=OPENAI_API_KEY
@@ -123,7 +144,7 @@ class GPTweeter:
 
     # Função que faz o tweet
     def tweet(self) -> None:
-        self.clean()  # Limpando o console
+        clean()  # Limpando o console
         response = self.gpt_generate_tweet()  # Gerando o tweeter usando o ChatGPT
         tweet = self.format_gpt_response(response).replace(
             '"', '')  # Formatando o tweet
@@ -191,3 +212,15 @@ class GPTweeter:
             spinner.fail(NameError)  # Caso falhe
         spinner.succeed("Tweet postado com sucesso!")  # Sucesso no spinner
         return response  # Retornando a resposta
+
+    def is_answered(self, id: str):
+        with open('app/last_answered_reply.txt', 'r+') as f:
+            # Remova quaisquer espaços em branco ou quebras de linha
+            last_answered = f.readline().strip()
+            if last_answered == id:
+                return True
+            else:
+                f.seek(0)  # Volte para o início do arquivo
+                f.truncate()  # Apague todo o conteúdo existente
+                f.write(id)  # Escreva o novo ID
+                return False

@@ -1,79 +1,42 @@
-from app.GPTweeter import GPTweeter
-from app.Console import Colors, clean
-from time import sleep
-import pyfiglet
+from pyfiglet import figlet_format
 from rich import print as rprint
+from time import sleep
+from app.Console import clean
+from datetime import time
+from pytz import timezone
+from app.GPTweeter import GPTweeter
+from schedule import every, run_pending
+from time import sleep
 
-colors = Colors()  # Classe das cores
-clean()  # Limpando o console
+clean()
 
-# Apresentação
-title = pyfiglet.figlet_format('GPTweeter', font='slant')
+title = figlet_format('GPTweeter', font='slant')
 rprint(f'[magenta]{title}[/magenta][blue]Uma aplicação python para performar tweets usando o [red]CHAT GPT[/red]![/blue]')
+sleep(1)
 
-sleep(1)  # Espera um segundo
+USERNAME = 'kevimflores'
+REPLY_DELAY = 1800
+POST_HOURS = [
+    time(9, 0, 0),
+    time(14, 0, 0),
+    time(20, 0, 0)
+]
+FUSO = timezone('America/Sao_Paulo')
+ASSUNTOS = "Cripto Moeda, Bitcoin, Ether"
 
-# Pergunta inicial para escolher qual função o programa irá performar
-func = input(f"""{colors.BOLD}Qual função você quer utilizar?
+rprint(
+    f"\n[bold]CONFIGURAÇÕES:[/bold] \n[purple]Usuário do Twitter:[/purple] {USERNAME} \n[yellow]Assuntos:[/yellow] {ASSUNTOS}\n[blue]Tempo entre análise de respostas:[/blue] {REPLY_DELAY} \n[red]Horários de postagem definidos: {POST_HOURS[0].hour},{POST_HOURS[1].hour},{POST_HOURS[2].hour}[/red] \n[green]FUSO:[/green]: {FUSO}")
 
-{colors.OKCYAN}1 - Postar um tweet
-2 - Postar um tweet de tempo em tempo
-3 - Responda um reply
+sleep(3)
 
-{colors.HEADER}Função: {colors.WARNING}""")
+gptweeter = GPTweeter(ASSUNTOS, USERNAME)
 
-clean()  # Limpando o console
+gptweeter.reply()
+gptweeter.activate_replys(1800)
 
-# Segunda pergunta que vai definir os temas dos tweets
-subjects = input(
-    f"{colors.UNDERLINE}Sobre qual temas você quer falar dentro dos seus tweets? (separado por virgula) {colors.OKGREEN}")
+for post_time in POST_HOURS:
+    every().day.at(str(post_time)).do(gptweeter.tweet)
 
-clean()  # Limpando o console
-
-# Terceira pergunta que vai definir o nome de usuário da conta
-username = input(
-    f"{colors.HEADER}Qual o nome de usuário da conta autenticada? (sem o @) {colors.FAIL}"
-)
-
-gptweeter = GPTweeter(subjects, username)  # Criando a instancia com os temas
-
-# Caso a função escolhida seja a primeira
-if (func == "1"):
-    gptweeter.tweet()  # Performe um tweet
-
-# Caso a função escolhida seja a segunda
-elif (func == "2"):
-    while True:  # Cria um loop
-        # Pergunta o tempo de delay de um tweet para o outro
-        delay = input(
-            f"{colors.UNDERLINE}Qual o intervalo você quer para postar os tweets? (Tempo, em segundos, maior que 60) {colors.OKBLUE}")
-
-        # Caso o tempo não seja um numero
-        if (not delay.strip().isdigit()):
-            # Retornando erro e repetindo a pergunta
-            print("O delay inserido e invalido...")
-            sleep(1)  # aguardando um segundo
-            clean()  # Limpando o console
-
-        # Caso o tempo seja menor que 1 minuto (para evitar bugs)
-        elif (int(delay) < 60):
-            # Retornando o erro e repetindo a pergunta
-            print("Tempo curto de mais...")
-            sleep(1)  # aguardando um segundo
-            clean()  # Limpando o console
-
-        # Caso esteja tudo certo
-        else:
-            break  # Quebra o loop
-
-    clean()  # Limpando o console
-
-    # Iniciando o thread do gptweeter
-    gptweeter.activate(int(delay))
-
-elif (func == "3"):
-    gptweeter.reply()
-
-# Caso não seja nenhuma das funções
-else:
-    print("Função inválida")  # Retornando erro
+while True:
+    run_pending()
+    sleep(1)
